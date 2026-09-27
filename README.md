@@ -30,6 +30,19 @@ The technology stack is:
 
 The data layer uses a shared Postgres/pgvector table, but every retrieval operation is explicitly scoped to the current workspace.
 
+## Live deployment
+
+* **App:** https://frontend-rho-sand-89.vercel.app
+* **Backend API:** https://abstrabit-doc-assistant.onrender.com (the free Render tier spins down after ~15 minutes idle, so the first request after a while can take 30-50s to cold-start)
+* **Login:** `Navneetkumar1266+graderdemo@gmail.com` / `GraderDemo123!`
+
+That account already has two workspaces preloaded so isolation can be tested immediately:
+
+* **Acme Corp** — `samples/workspace-a-acme.md` uploaded (Project Falcon details, an escalation PIN, and a prompt-injection probe line), plus one existing `save_task` and one `notify_discord` entry in its tool-call log
+* **Globex Inc** — `samples/workspace-b-globex.md` uploaded (RouteSense, a guest Wi-Fi password)
+
+Ask Globex about the escalation PIN, or Acme about the Wi-Fi password, and the assistant should say it doesn't know either way — that's the isolation guarantee holding across a shared vector store.
+
 ---
 
 # 2. Architecture
@@ -502,6 +515,17 @@ The backend is responsible for keeping server-side secrets such as:
 * Discord webhook
 
 outside of the frontend bundle.
+
+**A gotcha worth documenting**: Supabase's direct database connection
+(`db.<project-ref>.supabase.co:5432`) resolves to an IPv6-only address on
+the free tier. Render's outbound networking doesn't reliably support IPv6,
+so a backend deployed there will fail at startup with `OSError: [Errno 101]
+Network is unreachable` while trying to open the Postgres connection pool.
+The fix is to use Supabase's **connection pooler** hostname instead
+(Supabase dashboard → **Connect** → pooler connection string, something
+like `postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres`),
+which supports IPv4 and works from Render (or any other IPv4-only host)
+without needing Supabase's paid dedicated-IPv4 add-on.
 
 ### Frontend
 
